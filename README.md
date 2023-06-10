@@ -1,13 +1,17 @@
 # Install
 
-```python
-git clone 
-cd 
+```bash
+git clone https://github.com/xf-zhao/LogiThoughts.git
+cd LogiThoughts
 pip install -r requirements.txt
 ```
 
-# Dataset
+# Run
+
 ```bash
-git clone https://github.com/openai/grade-school-math.git .
-ln -s ./grade-school-math
+python main.py
 ```
+
+# Dataset
+
+GSM8K: git@github.com:xf-zhao/LogiThoughts.git
