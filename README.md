@@ -14,4 +14,4 @@ python main.py
 
 # Dataset
 
-GSM8K: git@github.com:xf-zhao/LogiThoughts.git
+GSM8K: <https://github.com/openai/grade-school-math>
