@@ -1,3 +1,8 @@
 test*
 .vscode
 */__pycache__/*
+wandb/*
+file_2023*
+output*
+cases.jsonl
+hard.jsonl

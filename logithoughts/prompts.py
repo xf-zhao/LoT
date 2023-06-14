@@ -5,29 +5,28 @@ Answer:
 """
 
 PT_prompt = """
-Examine ideas relevent to solve this question. Remember, it's not necessary to tackle the entire question at once. Instead, concentrate on evaluating whether each idea correctly states the problem or contributes to making progress in solving the problem.
-P="{P}".
-P is true because """
+(Let's examine the following step based on the question and current thinking progress. Note that all the required information can be definitely found in the context, and the examined step doese not necessarily tackle the question at once. Evaluate whether it correctly states the problem or contributes to making progress.)
+Consider the next step #{col}="{P}".
+Step #{col} is true because """
 
 PF_prompt = """
-Examine ideas relevent to solve this question. Remember, it's not necessary to tackle the entire question at once. Instead, concentrate on evaluating whether each idea correctly states the problem or contributes to making progress in solving the problem.
-P="{P}".
-P is false because """
+(Let's examine the following step based on the question and current thinking progress. Note that all the required information can be definitely found in the context, and the examined step doese not necessarily tackle the question at once. Evaluate whether it correctly states the problem or contributes to making progress.)
+Consider the next step #{col}="{P}".
+Step #{col} is false because """
 
-PF_refined_prompt = """
-P="{P}".
-P is false because {PF}.
-Therefore, the refinement is: """
-
-PTF_prompt = """
-Let's check two opinions that that are relevant to resolving this question.
-P="{P}".
-A: P is true because {PT}
-B: P is false because {PF}
+PTF_prompt = """Chose one. According to the question and thinking progress so far, which of the following is correct?
+For the next step #{col}="{P}",
+A: step #{col} is true because {PT}
+B: step #{col} is false because {PF}
 
 
 Which statement (A or B) is correct?
-Therefore, P is true or false?
+Therefore, step #{col} is true or false?
 (Your answer should follow the following format)
-Because ____, so statement ____ is correct. Therefore, P is ____.
+Because ____, so statement ____ is correct. Therefore, step #{col} is ____.
 """
+
+PFR_prompt = """For the next step #{col}, after double-check, it is false to think that "{P}" (because {PF}).
+According to the context, step #{col} should be (revised as):\n"""
+
+Answer_prompt = "Therefore, the numerical (int or float) result is: "
