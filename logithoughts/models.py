@@ -9,14 +9,12 @@ from langchain.schema import SystemMessage, HumanMessage
 import networkx as nx
 import matplotlib.pyplot as plt
 from .prompts import (
+    ARGUE,
+    NEGATION,
     sys_prompt,
-    PT_prompt,
-    PF_prompt,
-    PTF_prompt,
-    PFR_prompt,
     Answer_prompt,
 )
-from .utils import load_data, extract_pred_answer
+from .utils import load_data, extract_pred_answer, INVALID_ANS
 
 COLORMAP = {
     "maybe": "yellow",
@@ -29,7 +27,7 @@ COLORMAP = {
 }
 
 
-logger.add("file_{time}.log")
+logger.add("logs/file_{time}.log")
 
 
 class ThoughtEnv:
@@ -44,7 +42,7 @@ class ThoughtEnv:
         self.chat = chat
         self.max_steps = max_steps
         self.thoughts_spliter = re.compile(r"(?:\n*|^)#\d+\.\s")
-        self.sys_prompt_template = SystemMessagePromptTemplate.from_template(sys_prompt)
+        self.sys_template = SystemMessagePromptTemplate.from_template(sys_prompt)
         self.answer_msg = HumanMessage(content=Answer_prompt)
         self._debug = debug
         if debug:
@@ -95,7 +93,7 @@ class ThoughtEnv:
             return terminate
         self.G = nx.DiGraph()
         self._last_node = None
-        self.sys_msg = self.sys_prompt_template.format(question=data["question"])
+        self.sys_msg = self.sys_template.format(question=data["question"])
         self.default_chain = None
         self.data = data
         logger.info(f"Reset for question {idx}.")
@@ -165,12 +163,18 @@ class ThoughtEnv:
         return
 
     def _compute_answer_callback(self):
+        recall = 0
         answer_default = self._extract_answer(chain=self.default_chain)
         answer_logi = self._extract_answer(chain=self.sys_msg)
+        if answer_logi == INVALID_ANS:
+            # Adopt konwn eaiser thought answer
+            answer_logi = answer_default
+            recall = 1
         self.data.update(
             {
                 "answer_default": answer_default,
                 "answer_logi": answer_logi,
+                "recall": recall,
             }
         )
         return
@@ -213,6 +217,9 @@ class ThoughtEnv:
     def _grow_thoughts_graph(self, thoughts, index):
         row, col = self.get_index_loc(index)
         for thought in thoughts:
+            thought = thought.strip("\n")
+            thought = thought.strip("<step> ")
+            thought = thought.strip(" </step>")
             col += 1
             previous_index = self.get_index(row, col - 1)
             index = self.get_index(row, col)
@@ -242,17 +249,13 @@ class ThoughtEnv:
 
 
 class LogiAgent:
-    def __init__(self, chat, check_refined=True) -> None:
+    def __init__(self, chat, check_refined=True, mode="argue") -> None:
         self.chat = chat
+        self._mode = mode  # ['negation', 'argue']
         self.thought_polisher = re.compile(r"#\d+[:\.]\s")
         self._remove_col = lambda x: [
             t for t in self.thought_polisher.split(x) if len(t) > 5
         ][-1]
-        # Role maters
-        self.PT_prompt_template = HumanMessagePromptTemplate.from_template(PT_prompt)
-        self.PF_prompt_template = HumanMessagePromptTemplate.from_template(PF_prompt)
-        self.PTF_prompt_template = HumanMessagePromptTemplate.from_template(PTF_prompt)
-        self.PFR_prompt_template = HumanMessagePromptTemplate.from_template(PFR_prompt)
         self.check_refined = check_refined
 
     def policy(self, state):
@@ -260,32 +263,56 @@ class LogiAgent:
         P = self._remove_col(P)
         if refined and not self.check_refined:
             return P, True
-        PT_msg = self.PT_prompt_template.format(P=P, col=col)
-        msgs = [sys_msg, PT_msg]
-        logger.debug(sys_msg.content + PT_msg.content)
-        PT = self.chat(msgs).content
+        if self._mode == "argue":
+            # Role maters
+            self.PT_template = HumanMessagePromptTemplate.from_template(ARGUE.PT)
+            self.PF_template = HumanMessagePromptTemplate.from_template(ARGUE.PF)
+            self.PJ_template = HumanMessagePromptTemplate.from_template(ARGUE.PJ)
+            self.PR_template = HumanMessagePromptTemplate.from_template(ARGUE.PR)
+            PT_msg = self.PT_template.format(P=P, col=col)
+            msgs = [sys_msg, PT_msg]
+            # logger.debug(sys_msg.content + PT_msg.content)
+            PT = self.chat(msgs).content
 
-        PF_msg = self.PF_prompt_template.format(P=P, col=col)
-        msgs = [sys_msg, PF_msg]
-        logger.debug(sys_msg.content + PF_msg.content)
-        PF = self.chat(msgs).content
-        PTF_msg = self.PTF_prompt_template.format(P=P, PT=PT, PF=PF, col=col)
-        msgs = [sys_msg, PTF_msg]
-        choice = self.chat(msgs).content
-        logger.debug("PTF msg:\n" + sys_msg.content + PTF_msg.content)
-        logger.debug("Choice:\n" + choice)
-        if " is true" in choice.lower():
-            advice = P
-            passed = True
-        elif " is false" in choice.lower():
-            PFR_msg = self.PFR_prompt_template.format(P=P, PF=PF, col=col)
-            logger.debug(sys_msg.content + PFR_msg.content)
-            PFR = self.chat([sys_msg, PFR_msg]).content
-            advice = self._remove_col(PFR)
-            logger.info("Refinement:\n" + advice)
-            passed = False
-        else:
-            logger.warning(choice)
-            advice = P
-            passed = True
+            PF_msg = self.PF_template.format(P=P, col=col)
+            msgs = [sys_msg, PF_msg]
+            # logger.debug(sys_msg.content + PF_msg.content)
+            PF = self.chat(msgs).content
+            PJ_msg = self.PJ_template.format(P=P, PT=PT, PF=PF, col=col)
+            msgs = [sys_msg, PJ_msg]
+            choice = self.chat(msgs).content
+            logger.debug("PTF msg:\n" + sys_msg.content + PJ_msg.content)
+            logger.debug("Choice:\n" + choice)
+            if " is true" in choice.lower():
+                advice = P
+                passed = True
+            elif " is false" in choice.lower():
+                PFR_msg = self.PR_template.format(P=P, PF=PF, col=col)
+                logger.debug(sys_msg.content + PFR_msg.content)
+                PFR = self.chat([sys_msg, PFR_msg]).content
+                advice = self._remove_col(PFR)
+                logger.info("Refinement:\n" + advice)
+                passed = False
+            else:
+                logger.warning(choice)
+                advice = P
+                passed = True
+        elif self._mode == "negation":
+            self.PF_template = HumanMessagePromptTemplate.from_template(NEGATION.PF)
+            self.PJR_template = HumanMessagePromptTemplate.from_template(NEGATION.PJR)
+            PF_msg = self.PF_template.format(P=P, col=col)
+            msgs = [sys_msg, PF_msg]
+            # logger.debug(sys_msg.content + PF_msg.content)
+            PF = self.chat(msgs).content
+            PJR_msg = self.PJR_template.format(P=P, PF=PF, col=col)
+            msgs = [sys_msg, PJR_msg]
+            choice = self.chat(msgs).content
+            logger.debug("Choice:\n" + choice)
+            if f"evision of step #{col}: " in choice.lower():
+                PR = choice.split(f"evision of step #{col}: ")[1]
+                advice = self._remove_col(PR)
+                passed = False
+            else:
+                advice = P
+                passed = True
         return advice, passed

@@ -227,18 +227,16 @@ def compare_results(answers, final_answer):
 
 
 class Metrics:
-    def __init__(self, dataset_name="GSM8K", use_wandb=True) -> None:
+    def __init__(self, **kwargs) -> None:
         self._idxs = []
         self._data = None
         self._correctnesses = []
-        self.use_wandb = use_wandb
+        self.use_wandb = kwargs['use_wandb']
         if self.use_wandb:
             wandb.init(
                 project="LogiThoughts",
                 # Track hyperparameters and run metadata
-                config={
-                    "dataset_name": dataset_name,
-                },
+                config=kwargs,
             )
 
     @property

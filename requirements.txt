@@ -2,3 +2,4 @@ networkx
 matplotlib
 loguru
 wandb
+easydict
