@@ -1,8 +1,10 @@
 import argparse
 from tqdm import tqdm
+from loguru import logger
 from langchain.chat_models import ChatOpenAI
 from logithoughts.utils import GSM8KDataset, Metrics
 from logithoughts.models import LogiAgent, ThoughtEnv
+
 
 
 parser = argparse.ArgumentParser(
@@ -42,6 +44,7 @@ def main(args):
     )
 
     for idx, data in tqdm(dataset):
+        del idx
         state, terminate = env.reset(data)
         # state = state[0], "1+1=3"
         for _ in range(100):
@@ -51,8 +54,6 @@ def main(args):
                 break
             action = agent.policy(state)
             state, terminate = env.step(action)
-        if idx > 100:
-            break
     pass
 
 

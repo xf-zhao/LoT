@@ -41,7 +41,7 @@ class ThoughtEnv:
     ) -> None:
         self.chat = chat
         self.max_steps = max_steps
-        self.thoughts_spliter = re.compile(r"(?:\n*|^)#\d+\.\s")
+        self.thoughts_spliter = re.compile(r"(?:\n+|^)#\d+\.\s")
         self.sys_template = SystemMessagePromptTemplate.from_template(sys_prompt)
         self.answer_msg = HumanMessage(content=Answer_prompt)
         self._debug = debug
@@ -287,7 +287,8 @@ class LogiAgent:
                 advice = P
                 passed = True
             elif " is false" in choice.lower():
-                PFR_msg = self.PR_template.format(P=P, PF=PF, col=col)
+                # PFR_msg = self.PR_template.format(P=P, PF=PF, col=col)
+                PFR_msg = self.PR_template.format(P=P, col=col)
                 logger.debug(sys_msg.content + PFR_msg.content)
                 PFR = self.chat([sys_msg, PFR_msg]).content
                 advice = self._remove_col(PFR)
