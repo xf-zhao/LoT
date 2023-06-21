@@ -1,17 +1,49 @@
 from easydict import EasyDict
 
-sys_prompt = """Question: {question}
+base_sys_prompt = """Question: {question}
 
 Let's think step by step.
 Answer:
 """
 
+base_sys_prompt_logi = """Question: {question}
+
+Let's prove by the mean of "reduction to absurdity": Negate conclusion and conjunct with premises to determine whether the conjunction is a contradiction. If so, that is the option to select.
+Let's think step by step.
+Answer:
+"""
+
+
+SYS_PROMPTS = {
+    "GSM8K": {0: base_sys_prompt},
+    "LogiQA": {
+        0: "Analyze and answer the following single-choice problem in the symbolic logic field.\n"
+        + base_sys_prompt,
+        1: "Analyze and answer the following single-choice problem in the symbolic logic field.\n"
+        + base_sys_prompt_logi,
+    },
+    # + base_sys_prompt.replace("step by step", "step by step for every Opt"),
+    "AQuA": {
+        0: "Analyze and answer the following single-choice problem.\n" + base_sys_prompt
+    },
+    "Date":{0:base_sys_prompt},
+}
+
+ANSWER_PROMPTS = EasyDict(
+    {
+        "LogiQA": "Therefore, the final answer in a list of index (OptA, OptB, OptC or OptD):",
+        "GSM8K": "Therefore, the numerical (int or float) result is: ",
+        "AQuA": "Therefore, the final answer in a list of index (OptA, OptB, OptC or OptD):",
+        'Date':"Therefore, the answer (in MM/DD/YYYY format) is:",
+    }
+)
+
 ARGUE_PT = """
 Clarification of the next step:
 #{col}. {P}
 
-(Note the examined step doesn't have to tackle the whole problem at once.)
-Let's clarify the reasoning step #{col}: step #{col} is true because """
+Let's clarify the reasoning step #{col} for the the consistency with the quesion premises or with previous reasoning steps.
+Step #{col} is true because """
 
 # PF_prompt = PT_prompt.replace('is true because', 'is false because')
 
@@ -19,8 +51,7 @@ ARGUE_PF = """
 Criticisim of the next step:
 #{col}. {P}
 
-(Note the examined step doesn't have to tackle the whole problem at once.)
-Let's criticize the reasoning step #{col} for the the conflictions with the quesiont context or with previous steps one by one.
+Let's criticize the reasoning step #{col} for the the conflictions to the quesion premises or to previous reasoning steps.
 Step #{col} is false because """
 
 
@@ -28,16 +59,16 @@ ARGUE_PJ = """
 Verification of the next step:
 #{col}. {P}
 
-Let's check two different reviews (A and B) and pick the correct one to adopt.
-Keep in mind the principles I. and II. when analyzing the plausibility of the reviews.
+Let's check two different reviews (X and Y).
+Suport the more plausible one and criticise the other one.
+Review X: <review> step #{col} is TRUE because {PT} </review>
+Review Y: <review> step #{col} is FALSE because {PF} </review>
+
+Let's start by analyzing one by one:
+I. What are the premises and previous steps to support the verification of step #{col}? (Your answer should quote exact quote as support.)
+III. Criticise the incorrect review.
 (Note the examined step doesn't have to tackle the whole problem at once.)
-I. What are the premises to support the verification of step #{col}? (Your answer should involve exact quote as support.)
-II. Does the review actually conflict with the question description or context? Check one by one.
-Check carefully and select the correct review. Then, identify whether step #{col} is true or false.
-
-Review A: <review> step #{col} is true because {PT} </review>
-
-Review B: <review> step #{col} is false because {PF} </review>
+Finally, identify whether step #{col} is true or false.
 
 Analysis and conclusion:
 """
@@ -47,19 +78,28 @@ Analysis and conclusion:
 
 # {col}. It is false to say "{P}" because "{PF}"
 
+ARGUE_PR_NOREIVEW = """
+Revision for the next step:
+Original next step #{col}: {P}
+
+(Hint: It is not good to directly adopt the step #{col}.)
+Let's revise for a better version based on the question premises and on the reasoning steps so far.
+The revision should keep the question and options intact. Only revise the reasoning process.
+Revision of step #{col}:
+"""
+
 ARGUE_PR = """
 Revision for the next step:
 Original next step #{col}: {P}
 
-(Hint: It is incorrect to directly adopt the step #{col}.)
-Let's revise based on the known premises from the question context and from previous verified reasoning steps.
+(Hint: It is not good to directly adopt the step #{col} because there is a review says <review> {PF} </review>.)
+Let's revise for a better version based on the question premises and on the reasoning steps so far.
 Revision of step #{col}:
 """
- 
+
 
 # It is not correct to directly adopt the step #{col} because {PF}.
 
-Answer_prompt = "Therefore, the numerical (int or float) result is: "
 
 # Which statement (A or B) is correct?
 # Therefore, step #{col} is true or false?
@@ -78,52 +118,27 @@ ARGUE = EasyDict(
         "PT": ARGUE_PT,
         "PF": ARGUE_PF,
         "PJ": ARGUE_PJ,
+        "PJ": ARGUE_PJ,
         "PR": ARGUE_PR,
+        "PR_N": ARGUE_PR_NOREIVEW,
     }
 )
 
 
-# reuse
 NEGATION_PF = """
 #{col}. {P}
 
-Step #{col} is false because """
-
-
-NEGATION_PJR = """
-#{col}. {P}
-
-For the solution step #{col}, let's examine a critical review:
-<review> step #{col} is false because {PF} </review>
-
-Analyze carefully the review according to the original question context.
-(Your answer should explicitly quote evidence from the question context and previous verified reasoning steps as supports.)
-(Your answer should follow the following format.)
-Because ____, so the review is correct. Revision of step #{col}: ____.
-or Because ____, so the review is incorrect. There is no need for revision.
+Let's verify the step #{col} by the mean of "reduction to absurdity": Negate this step and conjunct with relevant premises and previous reasoning steps to determine whether the conjunction is a contradiction. If so, this step can be verified valid.
+Finally, answer whether step #{col} is true or false.
 """
-# Candidates:
-# Based on the plausibility of the reviews, say whether step #{col} is true or false?
-# Which review is correct? Therefore, step #{col} is true or false?
+# Let's think step by step.
 
-# {col}. It is false to say "{P}" because "{PF}"
 
-NEGATION_PR = """
-#{col}. {P}
-
-Let's revise the step #{col} for a reliable solution.
-According to the criteria a~d,
-a. The relevant premises (quote exact text in question or step number) related to the statement in this step;
-b. An incorrectness in stating the problem or lack of contribution in making progress towards the solution;
-c. A conflict with the question setting or previous reasoning steps;
-d. A mathematical calculation error.
-It is not good to directly adopt the step #{col} because there is an opinion saying: <opinion> It is not true because{PF} </opinion>.
-Therefore, step #{col} should be revised as:\n"""
-
+NEGATION_PR = ARGUE_PR
 
 NEGATION = EasyDict(
     {
         "PF": NEGATION_PF,
-        "PJR": NEGATION_PJR,
+        "PR": NEGATION_PR,
     }
 )

@@ -24,7 +24,7 @@ def load_data(frn, format="list", mode="r"):
     """
     if not os.path.exists(frn):
         return []
-    if frn.endswith(".jsonl"):
+    if frn.endswith(".jsonl") or frn.endswith(".txt") or frn.endswith('.json'):
         with open(frn, mode) as fr:
             rtns = [] if format == "list" else {}
             for i, line in enumerate(fr):
@@ -98,7 +98,7 @@ def extract_gold_answer(dataset_name, gold_completion):
         else:  # the gold answer has a single value
             answer = int(gold_completion)
         return answer
-    elif dataset_name in ["date", "CLUTRR"]:
+    elif dataset_name in ["Date", "CLUTRR"]:
         answer = gold_completion.split("#### ")[-1]
         return answer
     elif dataset_name == "saycan":
@@ -109,6 +109,12 @@ def extract_gold_answer(dataset_name, gold_completion):
         return answer
     elif dataset_name in ["sports"]:
         answer = bool(int(gold_completion))
+        return answer
+    elif dataset_name in ["LogiQA"]:
+        answer = int(gold_completion)
+        return answer
+    elif dataset_name in ["AQuA"]:
+        answer = ord(gold_completion.lower()) - ord('a')
         return answer
     else:
         return gold_completion
@@ -185,39 +191,48 @@ def extract_pred_answer(dataset_name, pred_completion, rounding="int", abs_val=T
         answer = pred_completion.strip()
         return answer
 
+    # added by xf
+    elif dataset_name in ["LogiQA"]:
+        ANS_RE = re.compile(r"Opt([a-zA-D])")
+        finds = ANS_RE.findall(pred_completion)
+        try:
+            find = finds[0].lower()
+            answer = ord(find) - ord("a")
+        except:
+            answer = INVALID_ANS
+        return answer
+    elif dataset_name in ["AQuA"]:
+        ANS_RE = re.compile(r"Opt([a-fA-F])")
+        finds = ANS_RE.findall(pred_completion)
+        try:
+            find = finds[0].lower()
+            answer = ord(find) - ord("a")
+        except:
+            answer = INVALID_ANS
+        return answer
+    elif dataset_name in ['Date']:
+        ANS_RE = re.compile(r".*(\d\d/\d\d/\d\d\d\d).*")
+        finds = ANS_RE.findall(pred_completion)
+        try:
+            answer = finds[0].lower()
+        except:
+            answer = INVALID_ANS
+        return answer
     else:
         return pred_completion
-
-
-class GSM8KDataset:
-    def __init__(self, data_path) -> None:
-        self.data = load_data(data_path)
-
-    def __iter__(self):
-        for idx, idata in enumerate(self.data):
-            try:
-                data = self._parse_data(idata)
-                data["idx"] = idx
-            except Exception as e:
-                logger.error(e)
-                continue
-            yield idx, data
-
-    def _parse_data(self, idata):
-        question, answer = idata["question"], idata["answer"]
-        reasoning, _ = answer.split("#### ")
-        gold_answer = extract_gold_answer("GSM8K", answer)
-        return {"question": question, "reasoning": reasoning, "answer": gold_answer}
 
 
 # Acknowledgement to https://github.com/lz1oceani/verify_cot/blob/main/utils/misc.py#L97
 def compare_results(answers, final_answer):
     def compare(answer, final_answer):
-        try:
-            correctness = np.abs(answer - final_answer) < 1e-6
-        except Exception as e:
-            logger.error(answer)
-            correctness = f"{answer}".strip() == f"{final_answer}".strip
+        if isinstance(answer, str) and isinstance(final_answer, str):
+            correctness = f"{answer}".strip() == f"{final_answer}".strip()
+        else:
+            try:
+                correctness = np.abs(answer - final_answer) < 1e-6
+            except Exception as e:
+                logger.error(f'Exception: {e}\n Answer is {answer}')
+                correctness = f"{answer}".strip() == f"{final_answer}".strip()
         return correctness
 
     if not isinstance(answers, list):
@@ -231,7 +246,7 @@ class Metrics:
         self._idxs = []
         self._data = None
         self._correctnesses = []
-        self.use_wandb = kwargs['use_wandb']
+        self.use_wandb = kwargs["use_wandb"]
         if self.use_wandb:
             wandb.init(
                 project="LogiThoughts",
@@ -295,7 +310,6 @@ class Metrics:
 
     def log(self):
         if self.use_wandb:
-            wandb.log(self.reports)
             data = self._data
             table = wandb.Table(
                 columns=[
@@ -316,6 +330,113 @@ class Metrics:
                 data["answer_logi"],
                 data["G"],
             )
-            wandb.log({f"Thoughts {idx}": table})
+            reports = self.reports
+            # reports = {f"Thoughts {idx}": table, **reports}
+            wandb.log(reports)
         logger.debug(self.reports)
         return
+
+
+class Dataset:
+    def __init__(self, data_path) -> None:
+        self.data = load_data(data_path)
+
+    def __iter__(self):
+        raise NotImplementedError
+
+    def _parse_data(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+class LogiQADataset(Dataset):
+    def __iter__(self):
+        for _, idata in enumerate(self.data):
+            try:
+                data = self._parse_data(idata)
+                idx = int(idata["id"])
+                data["idx"] = idx
+            except Exception as e:
+                logger.error(e)
+                continue
+            yield idx, data
+
+    def _parse_data(self, idata):
+        only_question, text, answer = idata["question"], idata["text"], idata["answer"]
+        options = idata["options"]
+        options = [f"Opt{i}: {opt}" for i, opt in zip("ABCD", options)]
+        option_text = "\n".join(options)
+        question = text + only_question + "\nOptions:\n" + option_text
+        gold_answer = extract_gold_answer("LogiQA", answer)
+        data = {
+            "question": question,
+            "answer": gold_answer,
+        }
+        return data
+
+
+class GSM8KDataset(Dataset):
+    def __iter__(self):
+        for idx, idata in enumerate(self.data):
+            try:
+                data = self._parse_data(idata)
+                data["idx"] = idx
+            except Exception as e:
+                logger.error(e)
+                continue
+            yield idx, data
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer("GSM8K", answer)
+        return {"question": question, "answer": gold_answer}
+
+
+class AQuADataset(Dataset):
+
+    def __iter__(self):
+        for idx, idata in enumerate(self.data):
+            try:
+                data = self._parse_data(idata)
+                data["idx"] = idx
+            except Exception as e:
+                logger.error(e)
+                continue
+            yield idx, data
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["correct"]
+        gold_answer = extract_gold_answer("AQuA", answer)
+        options = idata["options"]
+        options = [f"Opt{opt}" for opt in options]
+        option_text = "\n".join(options)
+        question = question + "\nOptions:\n" + option_text
+        data = {
+            "question": question,
+            "answer": gold_answer,
+        }
+        return data
+
+# Dataset from: https://github.com/veronica320/Faithful-COT/blob/main/data/date/test.jsonl
+class DateDataset(GSM8KDataset):
+    def __iter__(self):
+        for idata in self.data:
+            try:
+                data = self._parse_data(idata)
+                idx = idata['id']
+                data["idx"] = idx
+            except Exception as e:
+                logger.error(e)
+                continue
+            yield idx, data
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer("Date", answer)
+        return {"question": question, "answer": gold_answer}
+
+DATASETS = {
+    "GSM8K": GSM8KDataset,
+    "LogiQA": LogiQADataset,
+    "AQuA": AQuADataset,
+    'Date': DateDataset,
+}

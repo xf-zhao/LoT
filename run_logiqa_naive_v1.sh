@@ -1,0 +1,1 @@
+python main.py --dataset_name LogiQA --input data/LogiQA/test.txt --output data/LogiQA/output_test_naive_1v1.jsonl --model_name gpt-3.5-turbo-0613 --agent_mode naive --temperature 0.01 --prompt_version 1 --use_wandb

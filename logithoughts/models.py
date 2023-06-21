@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from .prompts import (
     ARGUE,
     NEGATION,
-    sys_prompt,
-    Answer_prompt,
+    SYS_PROMPTS,
+    ANSWER_PROMPTS,
 )
 from .utils import load_data, extract_pred_answer, INVALID_ANS
 
@@ -27,9 +27,6 @@ COLORMAP = {
 }
 
 
-logger.add("logs/file_{time}.log")
-
-
 class ThoughtEnv:
     def __init__(
         self,
@@ -37,16 +34,23 @@ class ThoughtEnv:
         max_steps=25,
         output=None,
         dataset_name="GSM8K",
+        prompt_version=0,
         debug=False,
     ) -> None:
         self.chat = chat
         self.max_steps = max_steps
         self.thoughts_spliter = re.compile(r"(?:\n+|^)#\d+\.\s")
-        self.sys_template = SystemMessagePromptTemplate.from_template(sys_prompt)
-        self.answer_msg = HumanMessage(content=Answer_prompt)
+        self.sys_template = SystemMessagePromptTemplate.from_template(
+            SYS_PROMPTS[dataset_name][prompt_version]
+        )
+        self.answer_msg = HumanMessage(content=ANSWER_PROMPTS[dataset_name])
         self._debug = debug
         if debug:
             logger.level("DEBUG")
+            logger.add("logs/debug/file_{time}.log")
+        else:
+            logger.level("INFO")
+            logger.add("logs/release/file_{time}.log")
         self.output = output
         self.datas = load_data(self.output, format="dict")
         self.dataset_name = dataset_name
@@ -249,12 +253,12 @@ class ThoughtEnv:
 
 
 class LogiAgent:
-    def __init__(self, chat, check_refined=True, mode="argue") -> None:
+    def __init__(self, chat, check_refined=True, mode="argue_review") -> None:
         self.chat = chat
-        self._mode = mode  # ['negation', 'argue']
+        self._mode = mode  # ['negation', 'argue_review', 'argue_noreview']
         self.thought_polisher = re.compile(r"#\d+[:\.]\s")
         self._remove_col = lambda x: [
-            t for t in self.thought_polisher.split(x) if len(t) > 5
+            t for t in self.thought_polisher.split(x) if len(t) > 2
         ][-1]
         self.check_refined = check_refined
 
@@ -263,12 +267,13 @@ class LogiAgent:
         P = self._remove_col(P)
         if refined and not self.check_refined:
             return P, True
-        if self._mode == "argue":
+        if self._mode == 'naive':
+            return P, True
+        if self._mode.startswith("argue"):
             # Role maters
             self.PT_template = HumanMessagePromptTemplate.from_template(ARGUE.PT)
             self.PF_template = HumanMessagePromptTemplate.from_template(ARGUE.PF)
             self.PJ_template = HumanMessagePromptTemplate.from_template(ARGUE.PJ)
-            self.PR_template = HumanMessagePromptTemplate.from_template(ARGUE.PR)
             PT_msg = self.PT_template.format(P=P, col=col)
             msgs = [sys_msg, PT_msg]
             # logger.debug(sys_msg.content + PT_msg.content)
@@ -287,8 +292,16 @@ class LogiAgent:
                 advice = P
                 passed = True
             elif " is false" in choice.lower():
-                # PFR_msg = self.PR_template.format(P=P, PF=PF, col=col)
-                PFR_msg = self.PR_template.format(P=P, col=col)
+                if self._mode == "argue_noreview":
+                    self.PR_template = HumanMessagePromptTemplate.from_template(
+                        ARGUE.PR_N
+                    )
+                    PFR_msg = self.PR_template.format(P=P, col=col)
+                else:
+                    self.PR_template = HumanMessagePromptTemplate.from_template(
+                        ARGUE.PR
+                    )
+                    PFR_msg = self.PR_template.format(P=P, PF=PF, col=col)
                 logger.debug(sys_msg.content + PFR_msg.content)
                 PFR = self.chat([sys_msg, PFR_msg]).content
                 advice = self._remove_col(PFR)
@@ -298,22 +311,21 @@ class LogiAgent:
                 logger.warning(choice)
                 advice = P
                 passed = True
-        elif self._mode == "negation":
+        elif self._mode.startswith("negation"):
             self.PF_template = HumanMessagePromptTemplate.from_template(NEGATION.PF)
-            self.PJR_template = HumanMessagePromptTemplate.from_template(NEGATION.PJR)
+            self.PR_template = HumanMessagePromptTemplate.from_template(NEGATION.PR)
             PF_msg = self.PF_template.format(P=P, col=col)
             msgs = [sys_msg, PF_msg]
             # logger.debug(sys_msg.content + PF_msg.content)
             PF = self.chat(msgs).content
-            PJR_msg = self.PJR_template.format(P=P, PF=PF, col=col)
-            msgs = [sys_msg, PJR_msg]
-            choice = self.chat(msgs).content
-            logger.debug("Choice:\n" + choice)
-            if f"evision of step #{col}: " in choice.lower():
-                PR = choice.split(f"evision of step #{col}: ")[1]
-                advice = self._remove_col(PR)
-                passed = False
-            else:
+            if ' is true' in PF.lower():
                 advice = P
                 passed = True
+            else:
+                PR_msg = self.PR_template.format(P=P, PF=PF, col=col)
+                msgs = [sys_msg, PR_msg]
+                revision = self.chat(msgs).content
+                logger.debug("Revision:\n" + revision)
+                passed = False
+                advice = revision
         return advice, passed
