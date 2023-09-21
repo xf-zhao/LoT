@@ -3,3 +3,5 @@ matplotlib
 loguru
 wandb
 easydict
+openai
+langchain

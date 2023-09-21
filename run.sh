@@ -11,7 +11,7 @@ for dataset in "Objects"; do
               --agent_mode $agent \
               --prompt_version 0 \
               --temperature 0.01 \
-              --env cot \\
+              --env cot \
               --use_wandb
     done
 done
