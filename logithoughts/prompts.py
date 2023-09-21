@@ -27,6 +27,11 @@ SYS_PROMPTS = {
         0: "Analyze and answer the following single-choice problem.\n" + base_sys_prompt
     },
     "Date":{0:base_sys_prompt},
+    'LastLetter':{0:base_sys_prompt},
+    'CauseEffect':{0 :base_sys_prompt},
+    'SocialQA':{0 :base_sys_prompt},
+    'OddOneOut':{0 :base_sys_prompt},
+    'Objects':{0 :base_sys_prompt},
 }
 
 ANSWER_PROMPTS = EasyDict(
@@ -35,6 +40,11 @@ ANSWER_PROMPTS = EasyDict(
         "GSM8K": "Therefore, the numerical (int or float) result is: ",
         "AQuA": "Therefore, the final answer in a list of index (OptA, OptB, OptC or OptD):",
         'Date':"Therefore, the answer (in MM/DD/YYYY format) is:",
+        'LastLetter': "Therefore, the answer (only the answer no extra comments) is:",
+        "CauseEffect": "Therefore, the final answer in a list of index (OptA or OptB):",
+        "SocialQA": "Therefore, the final answer in a list of index (OptA, OptB or OptC):",
+        "OddOneOut": "Therefore, the final answer in a list of index (OptA, OptB, OptC, OptD, OptE or OptF):",
+        "Objects": "Therefore, the final answer in a list of index (OptA, OptB or OptC):",
     }
 )
 
@@ -66,7 +76,7 @@ Review Y: <review> step #{col} is FALSE because {PF} </review>
 
 Let's start by analyzing one by one:
 I. What are the premises and previous steps to support the verification of step #{col}? (Your answer should quote exact quote as support.)
-III. Criticise the incorrect review.
+II. Criticise the incorrect review.
 (Note the examined step doesn't have to tackle the whole problem at once.)
 Finally, identify whether step #{col} is true or false.
 

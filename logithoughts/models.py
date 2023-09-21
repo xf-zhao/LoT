@@ -27,7 +27,111 @@ COLORMAP = {
 }
 
 
-class ThoughtEnv:
+class CoTEnv:
+    def __init__(
+        self,
+        chat,
+        output=None,
+        dataset_name="GSM8K",
+        prompt_version=0,
+        debug=False,
+    ) -> None:
+        self.chat = chat
+        self.sys_template = SystemMessagePromptTemplate.from_template(
+            SYS_PROMPTS[dataset_name][prompt_version]
+        )
+        self.answer_msg = HumanMessage(content=ANSWER_PROMPTS[dataset_name])
+        self._debug = debug
+        if debug:
+            logger.level("DEBUG")
+            logger.add("logs/debug/file_{time}.log")
+        else:
+            logger.level("INFO")
+            logger.add("logs/release/file_{time}.log")
+        self.output = output
+        self.datas = load_data(self.output, format="dict")
+        self.dataset_name = dataset_name
+        self.index_node = None
+        self._recovered = False
+
+    def reset(self, data):
+        terminate = self._reset(data)
+        if terminate:
+            state = None, None, None, False
+            return state, terminate
+        init_sys_msg = SystemMessage(content=self.sys_msg.content)
+        resp = self.chat([init_sys_msg])
+        chain = init_sys_msg.content + resp.content
+        logger.debug("<< Baseline >>\n" + chain)
+        self.default_chain = SystemMessage(content=chain)
+        state = self.sys_msg, 1, None, None
+        terminate = True
+        return state, terminate
+
+    def _reset(self, data):
+        terminate = False
+        idx = data["idx"]
+        if idx in self.datas:
+            logger.warning(
+                f"Loading existing data from {self.output} with idx {idx}. Terminate early."
+            )
+            data = self.datas[idx]
+            self.data = data
+            terminate = True
+            return terminate
+        self._recovered = False
+        self.sys_msg = self.sys_template.format(question=data["question"])
+        self.data = data
+        logger.info(f"Reset for question {idx}.")
+        return terminate
+
+    def recover(self, e):
+        self._recovered = True
+        self._terminate()
+        logger.warning(f'Recovered from: {e}')
+        return
+
+    def step(self, *args):
+        del args
+        raise NotImplementedError
+
+    def terminate(self):
+        self._terminate()
+
+    def _terminate(self):
+        self._compute_answer_callback()
+        self._save_data_callback()
+        return
+
+    def _compute_answer_callback(self):
+        recall = 0
+        answer_default = self._extract_answer(chain=self.default_chain)
+        self.data.update(
+            {
+                "answer_default": answer_default,
+                "recall": recall,
+            }
+        )
+        return
+
+    def _extract_answer(self, chain):
+        answer_pred = self.chat([chain, self.answer_msg]).content
+        logger.debug(answer_pred)
+        answer_pred = extract_pred_answer(
+            dataset_name=self.dataset_name, pred_completion=answer_pred
+        )
+        return answer_pred
+
+    def _save_data_callback(self):
+        if self.output is None:
+            return
+        with open(self.output, "a+") as fout:
+            data_json = json.dumps(self.data)
+            fout.write(data_json + "\n")
+            logger.info(f"Saved one line to {self.output}")
+        return
+
+class LogiCoTEnv(CoTEnv):
     def __init__(
         self,
         chat,
@@ -55,6 +159,7 @@ class ThoughtEnv:
         self.datas = load_data(self.output, format="dict")
         self.dataset_name = dataset_name
         self.index_node = None
+        self._recovered = False
 
     def reset(self, data):
         terminate = self._reset(data)
@@ -97,6 +202,7 @@ class ThoughtEnv:
             return terminate
         self.G = nx.DiGraph()
         self._last_node = None
+        self._recovered = False
         self.sys_msg = self.sys_template.format(question=data["question"])
         self.default_chain = None
         self.data = data
@@ -111,6 +217,13 @@ class ThoughtEnv:
             next_node = next_nodes[0]
         return next_node
 
+    def recover(self, e):
+        self._recovered = True
+        self._terminate()
+        self.sys_msg = self.default_chain
+        logger.warning(f'Recovered from: {e}')
+        return
+        
     def step(self, action):
         terminate = False
         G = self.G
@@ -144,7 +257,7 @@ class ThoughtEnv:
         if col > self.max_steps or next_node is None:
             # TODO: if exceeds maxstep, just return the initial
             terminate = True
-            self._terminate()
+            # self._terminate()
             return None, terminate
         self.index_node = next_node
         P = G.nodes[self.index_node]["thought"].replace('"', "'")
@@ -329,3 +442,4 @@ class LogiAgent:
                 passed = False
                 advice = revision
         return advice, passed
+

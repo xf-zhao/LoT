@@ -1,1 +1,0 @@
-python main.py --dataset_name Date --input data/Date/test.jsonl --output data/Date/output_test_argue_review_v0.jsonl --model_name gpt-3.5-turbo-0613 --agent_mode 'argue_review' --prompt_version 0 --temperature 0.01 --use_wandb

@@ -1,1 +1,0 @@
-python main.py --dataset_name LogiQA --input data/LogiQA/test.txt --output data/LogiQA/output_test_argue_review_0621.jsonl --model_name gpt-3.5-turbo-0613 --agent_mode argue_review --temperature 0.01 --use_wandb

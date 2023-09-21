@@ -6,10 +6,12 @@ import wandb
 import math
 import re
 import csv
-from collections import Counter
+from collections import Counter, defaultdict
 from fractions import Fraction
 from loguru import logger
 import numpy as np
+from pathlib import Path
+
 
 
 # Acknowledgement to https://github.com/veronica320/Faithful-COT/blob/2f204a48073eebed5d939bc59a7766306fb8298c/source/dataset/utils.py
@@ -23,8 +25,10 @@ def load_data(frn, format="list", mode="r"):
     :return: The dataset (a list of examples, each as a dictionary).
     """
     if not os.path.exists(frn):
+        filename = Path(frn)
+        filename.parent.mkdir(parents=True, exist_ok=True)
         return []
-    if frn.endswith(".jsonl") or frn.endswith(".txt") or frn.endswith('.json'):
+    if frn.endswith(".jsonl") or frn.endswith(".txt"):
         with open(frn, mode) as fr:
             rtns = [] if format == "list" else {}
             for i, line in enumerate(fr):
@@ -45,6 +49,10 @@ def load_data(frn, format="list", mode="r"):
         with open(frn) as fr:
             reader = csv.DictReader(fr)
             return [line for line in reader]
+    elif frn.endswith('.json'):
+        with open(frn, mode) as fr:
+            rtns = json.load(fr)
+        return rtns
 
 
 def str2num(answer_str, rounding="int", abs_val=True):
@@ -113,9 +121,12 @@ def extract_gold_answer(dataset_name, gold_completion):
     elif dataset_name in ["LogiQA"]:
         answer = int(gold_completion)
         return answer
-    elif dataset_name in ["AQuA"]:
+    elif dataset_name in ["AQuA", "CauseEffect", 'SocialQA', 'OddOneOut', 'Objects']:
+        gold_completion = gold_completion.replace('Opt','')
         answer = ord(gold_completion.lower()) - ord('a')
         return answer
+    elif dataset_name in ["LastLetter"]:
+        return gold_completion
     else:
         return gold_completion
 
@@ -201,7 +212,7 @@ def extract_pred_answer(dataset_name, pred_completion, rounding="int", abs_val=T
         except:
             answer = INVALID_ANS
         return answer
-    elif dataset_name in ["AQuA"]:
+    elif dataset_name in ["AQuA", "CauseEffect", 'SocialQA', 'OddOneOut', 'Objects']:
         ANS_RE = re.compile(r"Opt([a-fA-F])")
         finds = ANS_RE.findall(pred_completion)
         try:
@@ -243,9 +254,13 @@ def compare_results(answers, final_answer):
 
 class Metrics:
     def __init__(self, **kwargs) -> None:
+        self.rec = re.compile(r"T\[(\d+), (\d+)\]")
         self._idxs = []
         self._data = None
         self._correctnesses = []
+        self._default_steps = []
+        self._final_steps = []
+        self._final_layer = []
         self.use_wandb = kwargs["use_wandb"]
         if self.use_wandb:
             wandb.init(
@@ -290,6 +305,9 @@ class Metrics:
             "worse rate": self.worse_rate,
             "T_default": int(self._correctnesses[-1][0]),
             "T_logi": int(self._correctnesses[-1][1]),
+            "steps_default": np.array(self._default_steps).mean(),
+            "steps_logi": np.array(self._final_steps).mean(),
+            "layers_logi": np.array(self._final_layer).mean(),
         }
         return reports
 
@@ -305,31 +323,45 @@ class Metrics:
             answers=[answer_default, answer_logi], final_answer=answer
         )
         self._correctnesses.append(correctness)
+
+        # counting steps
+        nodes = data['G']['nodes']
+        steps = defaultdict(list)
+        for node in nodes:
+            nid = node['id']
+            match = self.rec.search(nid)
+            m, n = int(match[1]), int(match[2])
+            steps[m].append(n)
+        default_layer, final_layer = min(steps.keys()), max(steps.keys())
+        default_steps, final_steps = max(steps[default_layer]), max(steps[final_layer])
+        self._final_layer.append(final_layer)
+        self._default_steps.append(default_steps)
+        self._final_steps.append(final_steps)
         self._data = data
         return
 
     def log(self):
         if self.use_wandb:
-            data = self._data
-            table = wandb.Table(
-                columns=[
-                    "idx",
-                    "question",
-                    "answer",
-                    "answer_default",
-                    "answer_logi",
-                    "G",
-                ]
-            )
-            idx = data["idx"]
-            table.add_data(
-                idx,
-                data["question"],
-                data["answer"],
-                data["answer_default"],
-                data["answer_logi"],
-                data["G"],
-            )
+            # data = self._data
+            # table = wandb.Table(
+            #     columns=[
+            #         "idx",
+            #         "question",
+            #         "answer",
+            #         "answer_default",
+            #         "answer_logi",
+            #         "G",
+            #     ]
+            # )
+            # idx = data["idx"]
+            # table.add_data(
+            #     idx,
+            #     data["question"],
+            #     data["answer"],
+            #     data["answer_default"],
+            #     data["answer_logi"],
+            #     data["G"],
+            # )
             reports = self.reports
             # reports = {f"Thoughts {idx}": table, **reports}
             wandb.log(reports)
@@ -416,8 +448,8 @@ class AQuADataset(Dataset):
         }
         return data
 
-# Dataset from: https://github.com/veronica320/Faithful-COT/blob/main/data/date/test.jsonl
 class DateDataset(GSM8KDataset):
+    # Dataset from: https://github.com/veronica320/Faithful-COT/blob/main/data/date/test.jsonl
     def __iter__(self):
         for idata in self.data:
             try:
@@ -434,9 +466,53 @@ class DateDataset(GSM8KDataset):
         gold_answer = extract_gold_answer("Date", answer)
         return {"question": question, "answer": gold_answer}
 
+class LastLetterDataset(GSM8KDataset):
+    # Dataset from https://huggingface.co/datasets/ChilleD/LastLetterConcat
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer('LastLetter', answer)
+        return {"question": question, "answer": gold_answer}
+
+
+class CauseEffectDataset(GSM8KDataset):
+    # https://github.com/google/BIG-bench/blob/main/bigbench/benchmark_tasks/cause_and_effect/one_sentence/task.json
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer('CauseEffect', answer)
+        return {"question": question, "answer": gold_answer}
+
+class SocialQADataset(CauseEffectDataset):
+    # https://github.com/google/BIG-bench/blob/main/bigbench/benchmark_tasks/social_iqa/task.json
+
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer('SocialQA', answer)
+        return {"question": question, "answer": gold_answer}
+
+class OddOneOutDataset(CauseEffectDataset):
+    # https://github.com/google/BIG-bench/blob/main/bigbench/benchmark_tasks/odd_one_out/task.json
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer('OddOneOut', answer)
+        return {"question": question, "answer": gold_answer}
+
+class ObjectsDataset(CauseEffectDataset):
+    # https://github.com/google/BIG-bench/blob/main/bigbench/benchmark_tasks/tracking_shuffled_objects/three_objects/task.json
+    def _parse_data(self, idata):
+        question, answer = idata["question"], idata["answer"]
+        gold_answer = extract_gold_answer('Objects', answer)
+        return {"question": question, "answer": gold_answer}
+
 DATASETS = {
     "GSM8K": GSM8KDataset,
     "LogiQA": LogiQADataset,
     "AQuA": AQuADataset,
     'Date': DateDataset,
+    'LastLetter': LastLetterDataset,
+    'CauseEffect': CauseEffectDataset,
+    'SocialQA':SocialQADataset,
+    'OddOneOut':OddOneOutDataset,
+    'Objects':ObjectsDataset,
 }
