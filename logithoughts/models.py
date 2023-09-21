@@ -88,7 +88,7 @@ class CoTEnv:
     def recover(self, e):
         self._recovered = True
         self._terminate()
-        logger.warning(f'Recovered from: {e}')
+        logger.warning(f"Recovered from: {e}")
         return
 
     def step(self, *args):
@@ -130,6 +130,7 @@ class CoTEnv:
             fout.write(data_json + "\n")
             logger.info(f"Saved one line to {self.output}")
         return
+
 
 class LogiCoTEnv(CoTEnv):
     def __init__(
@@ -221,9 +222,9 @@ class LogiCoTEnv(CoTEnv):
         self._recovered = True
         self._terminate()
         self.sys_msg = self.default_chain
-        logger.warning(f'Recovered from: {e}')
+        logger.warning(f"Recovered from: {e}")
         return
-        
+
     def step(self, action):
         terminate = False
         G = self.G
@@ -380,7 +381,7 @@ class LogiAgent:
         P = self._remove_col(P)
         if refined and not self.check_refined:
             return P, True
-        if self._mode == 'naive':
+        if self._mode == "naive":
             return P, True
         if self._mode.startswith("argue"):
             # Role maters
@@ -431,7 +432,7 @@ class LogiAgent:
             msgs = [sys_msg, PF_msg]
             # logger.debug(sys_msg.content + PF_msg.content)
             PF = self.chat(msgs).content
-            if ' is true' in PF.lower():
+            if " is true" in PF.lower():
                 advice = P
                 passed = True
             else:
@@ -442,4 +443,3 @@ class LogiAgent:
                 passed = False
                 advice = revision
         return advice, passed
-

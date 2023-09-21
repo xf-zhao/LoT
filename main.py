@@ -2,7 +2,7 @@ import argparse
 import openai
 from tqdm import tqdm
 from langchain.chat_models import ChatOpenAI
-from logithoughts.utils import DATASETS, Metrics
+from logithoughts.utils import DATASETS, Metrics, BaseMetrics
 from logithoughts.models import LogiAgent, CoTEnv, LogiCoTEnv
 
 
@@ -28,7 +28,6 @@ parser.add_argument("--model_name", default="Vicuna-33b")
 def main(args):
     Dataset = DATASETS[args.dataset_name]
     dataset = Dataset(data_path=args.input)
-    metrics = Metrics(**vars(args))
     # todo: Add try-catch another temperature when exception happens
     chat = ChatOpenAI(
         model_name=args.model_name,
@@ -44,6 +43,7 @@ def main(args):
             debug=args.debug,
         )
         agent = None
+        metrics = BaseMetrics(**vars(args))
     elif args.env == "logicot":
         env = LogiCoTEnv(
             chat=chat,
@@ -58,6 +58,7 @@ def main(args):
             check_refined=False,
             mode=args.agent_mode,
         )
+        metrics = Metrics(**vars(args))
     else:
         raise NotImplementedError
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         openai.api_base = "http://134.100.39.10:31046/v1"
     elif args.model_name == "Vicuna-13b":
         openai.api_key = "EMPTY"
-        openai.api_base = "http://134.100.10.111:8000/v1" # "http://134.100.9.212:8000/v1"
+        openai.api_base = "http://134.100.9.212:8000/v1"
     elif args.model_name == "Vicuna-7b":
         openai.api_key = "EMPTY"
         openai.api_base = "http://134.100.39.10:30876/v1"
