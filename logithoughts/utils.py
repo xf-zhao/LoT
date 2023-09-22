@@ -203,13 +203,17 @@ def extract_pred_answer(dataset_name, pred_completion, rounding="int", abs_val=T
 
     # added by xf
     elif dataset_name in ["LogiQA"]:
-        ANS_RE = re.compile(r"Opt([a-zA-D])")
+        ANS_RE = re.compile(r"Opt([a-dA-D])")
         finds = ANS_RE.findall(pred_completion)
         try:
             find = finds[0].lower()
             answer = ord(find) - ord("a")
         except:
-            answer = INVALID_ANS
+            try:
+                ANS_RE = re.compile(r"Option ([a-zA-D])")
+                finds = ANS_RE.findall(pred_completion)
+            except:
+                answer = INVALID_ANS
         return answer
     elif dataset_name in ["AQuA", "CauseEffect", "SocialQA", "OddOneOut", "Objects"]:
         ANS_RE = re.compile(r"Opt([a-fA-F])")
@@ -218,7 +222,13 @@ def extract_pred_answer(dataset_name, pred_completion, rounding="int", abs_val=T
             find = finds[0].lower()
             answer = ord(find) - ord("a")
         except:
-            answer = INVALID_ANS
+            ANS_RE = re.compile(r"Option ([a-fA-F])")
+            finds = ANS_RE.findall(pred_completion)
+            try:
+                find = finds[0].lower()
+                answer = ord(find) - ord("a")
+            except:
+                answer = INVALID_ANS
         return answer
     elif dataset_name in ["Date"]:
         ANS_RE = re.compile(r".*(\d\d/\d\d/\d\d\d\d).*")
@@ -276,7 +286,7 @@ class BaseMetrics:
     def reports(self):
         reports = {
             "idx": self._data["idx"],
-            "acc": self.acc[0],
+            "acc": self.acc,
         }
         return reports
 

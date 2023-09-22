@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser(
     epilog="Text at the bottom of help",
 )
 parser.add_argument("--env", default="cot")
+parser.add_argument("--seed", default="1")
 parser.add_argument("--input", default="data/GSM8K/dev.jsonl")
 parser.add_argument("--output", default="data/GSM8K/outputs/output_dev.jsonl")
 parser.add_argument("--dataset_name", default="GSM8K")
@@ -67,7 +68,6 @@ def main(args):
         state, terminate = env.reset(data)
         for _ in range(100):
             if terminate:
-                env.terminate()
                 metrics.update(env.data)
                 metrics.log()
                 break

@@ -66,6 +66,7 @@ class CoTEnv:
         self.default_chain = SystemMessage(content=chain)
         state = self.sys_msg, 1, None, None
         terminate = True
+        self.terminate()
         return state, terminate
 
     def _reset(self, data):
@@ -104,12 +105,10 @@ class CoTEnv:
         return
 
     def _compute_answer_callback(self):
-        recall = 0
         answer_default = self._extract_answer(chain=self.default_chain)
         self.data.update(
             {
                 "answer_default": answer_default,
-                "recall": recall,
             }
         )
         return
@@ -258,7 +257,7 @@ class LogiCoTEnv(CoTEnv):
         if col > self.max_steps or next_node is None:
             # TODO: if exceeds maxstep, just return the initial
             terminate = True
-            # self._terminate()
+            self.terminate()
             return None, terminate
         self.index_node = next_node
         P = G.nodes[self.index_node]["thought"].replace('"', "'")
