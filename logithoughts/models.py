@@ -66,6 +66,7 @@ class CoTEnv:
         self.default_chain = SystemMessage(content=chain)
         state = self.sys_msg, 1, None, None
         terminate = True
+        self.terminate()
         return state, terminate
 
     def _reset(self, data):
@@ -88,7 +89,7 @@ class CoTEnv:
     def recover(self, e):
         self._recovered = True
         self._terminate()
-        logger.warning(f'Recovered from: {e}')
+        logger.warning(f"Recovered from: {e}")
         return
 
     def step(self, *args):
@@ -104,12 +105,10 @@ class CoTEnv:
         return
 
     def _compute_answer_callback(self):
-        recall = 0
         answer_default = self._extract_answer(chain=self.default_chain)
         self.data.update(
             {
                 "answer_default": answer_default,
-                "recall": recall,
             }
         )
         return
@@ -130,6 +129,7 @@ class CoTEnv:
             fout.write(data_json + "\n")
             logger.info(f"Saved one line to {self.output}")
         return
+
 
 class LogiCoTEnv(CoTEnv):
     def __init__(
@@ -221,9 +221,9 @@ class LogiCoTEnv(CoTEnv):
         self._recovered = True
         self._terminate()
         self.sys_msg = self.default_chain
-        logger.warning(f'Recovered from: {e}')
+        logger.warning(f"Recovered from: {e}")
         return
-        
+
     def step(self, action):
         terminate = False
         G = self.G
@@ -257,7 +257,7 @@ class LogiCoTEnv(CoTEnv):
         if col > self.max_steps or next_node is None:
             # TODO: if exceeds maxstep, just return the initial
             terminate = True
-            # self._terminate()
+            self.terminate()
             return None, terminate
         self.index_node = next_node
         P = G.nodes[self.index_node]["thought"].replace('"', "'")
@@ -380,7 +380,7 @@ class LogiAgent:
         P = self._remove_col(P)
         if refined and not self.check_refined:
             return P, True
-        if self._mode == 'naive':
+        if self._mode == "naive":
             return P, True
         if self._mode.startswith("argue"):
             # Role maters
@@ -431,7 +431,7 @@ class LogiAgent:
             msgs = [sys_msg, PF_msg]
             # logger.debug(sys_msg.content + PF_msg.content)
             PF = self.chat(msgs).content
-            if ' is true' in PF.lower():
+            if " is true" in PF.lower():
                 advice = P
                 passed = True
             else:
@@ -442,4 +442,3 @@ class LogiAgent:
                 passed = False
                 advice = revision
         return advice, passed
-

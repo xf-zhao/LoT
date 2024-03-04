@@ -36,15 +36,15 @@ SYS_PROMPTS = {
 
 ANSWER_PROMPTS = EasyDict(
     {
-        "LogiQA": "Therefore, the final answer in a list of index (OptA, OptB, OptC or OptD):",
+        "LogiQA": "Therefore, the final answer is (chose only one option indicator from the list [OptA, OptB, OptC, OptD]):",
         "GSM8K": "Therefore, the numerical (int or float) result is: ",
-        "AQuA": "Therefore, the final answer in a list of index (OptA, OptB, OptC or OptD):",
+        "AQuA": "Therefore, the final answer is (chose only one opiton indicator from the list [OptA, OptB, OptC or OptD]):",
         'Date':"Therefore, the answer (in MM/DD/YYYY format) is:",
         'LastLetter': "Therefore, the answer (only the answer no extra comments) is:",
-        "CauseEffect": "Therefore, the final answer in a list of index (OptA or OptB):",
-        "SocialQA": "Therefore, the final answer in a list of index (OptA, OptB or OptC):",
-        "OddOneOut": "Therefore, the final answer in a list of index (OptA, OptB, OptC, OptD, OptE or OptF):",
-        "Objects": "Therefore, the final answer in a list of index (OptA, OptB or OptC):",
+        "CauseEffect": "Therefore, the final answer is (chose only one option indicator from the list [OptA, OptB]):",
+        "SocialQA": "Therefore, the final answer is (chose only one option indicator from the list [OptA, OptB, OptC]):",
+        "OddOneOut": "Therefore, the final answer is (chose only one option indicator from the list [OptA, OptB, OptC, OptD, OptE, OptF]:",
+        "Objects": "Therefore, the final answer is (chose only one option indicator from the list [OptA, OptB, OptC]):",
     }
 )
 
