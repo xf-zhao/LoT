@@ -1,7 +1,7 @@
 This is the repertory for the **LoT** paper:
- **"Enhancing Zero-Shot Chain-of-Thought Reasoning in Large Language Models through Logic"**, *Xufeng Zhao, Mengdi Li, Wenhao Lu, Cornelius Weber, Jae Hee Lee, Kun Chu, Stefan Wermter.* [[arXiv](https://arxiv.org/abs/2309.13339)], to appear at `COLING 2024`.
+ **"Enhancing Zero-Shot Chain-of-Thought Reasoning in Large Language Models through Logic"**, *[Xufeng Zhao](https://xf-zhao.github.io/), [Mengdi Li](https://mengdi-li.github.io/), [Wenhao Lu](https://lukaswill.github.io/), [Cornelius Weber](https://www.inf.uni-hamburg.de/en/inst/ab/wtm/people/weber.html), [Jae Hee Lee](https://jaeheelee.gitlab.io/), [Kun Chu](https://kchu.github.io/), [Stefan Wermter](https://www.inf.uni-hamburg.de/en/inst/ab/wtm/people/wermter.html).* [[arXiv](https://arxiv.org/abs/2309.13339)], to appear at `COLING 2024`.
 
-![](https://xf-zhao.github.io/assets/img/publication_preview/LoT%20prompting.gif)
+![](https://github.com/xf-zhao/xf-zhao.github.io/blob/master/assets/img/publication_preview/LoT%20prompting.gif?raw=true)
 
 Abstract:
 
