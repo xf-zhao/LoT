@@ -84,11 +84,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.model_name == "Vicuna-33b":
         openai.api_key = "EMPTY"
-        openai.api_base = "http://134.100.39.10:31046/v1"
+        openai.api_base = "http://localhost:8000/v1"
     elif args.model_name == "Vicuna-13b":
         openai.api_key = "EMPTY"
-        openai.api_base = "http://134.100.9.212:8000/v1"
+        openai.api_base = "http://localhost:8000/v1"
     elif args.model_name == "Vicuna-7b":
         openai.api_key = "EMPTY"
-        openai.api_base = "http://134.100.39.10:30876/v1"
+        openai.api_base = "http://localhost:8000/v1"
     main(args)
