@@ -10,7 +10,7 @@ for dataset in "AQuA"; do
               --output data/$dataset/output/$model/${env}_${seed}.jsonl \
               --model_name $model \
               --prompt_version 0 \
-              --temperature 0.01 \
+              --temperature 0.7 \
               --env $env \
               --seed $seed \
               --use_wandb &
