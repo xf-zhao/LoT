@@ -1,7 +1,7 @@
 env="cot"
 seed="1"
  
-for dataset in "AQuA" "GSM8K" "Date" "SocialQA" "CauseEffect" "Objects" "OddOneOut" "LastLetter"; do
+# for dataset in "AQuA" "GSM8K" "Date" "SocialQA" "CauseEffect" "Objects" "OddOneOut" "LastLetter"; do
 for dataset in "AQuA"; do
     # for model in "Vicuna-13b" "Vicuna-33b" "Vicuna-7b" "gpt-3.5-turbo" "gpt-4-0613"; do
     for model in "Vicuna-13b"; do
