@@ -1,4 +1,5 @@
 .vscode
+logs/
 */__pycache__/*
 wandb/*
 file_2023*

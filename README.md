@@ -24,7 +24,10 @@ python main.py --env lot --model_name gpt-3.5-turbo
 
 # Run Exepriments
 ```bash
+# vanilla CoT
 sh run_cot.sh
+
+# LoT with modified CoT, specifically, with "#1." as additional prompt
 sh run_lot.sh
 ```
 
