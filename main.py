@@ -45,7 +45,7 @@ def main(args):
         )
         agent = None
         metrics = BaseMetrics(**vars(args))
-    elif args.env == "logicot":
+    elif args.env == "lot":
         env = LogiCoTEnv(
             chat=chat,
             dataset_name=args.dataset_name,
