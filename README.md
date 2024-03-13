@@ -15,10 +15,17 @@ cd LoT
 pip install -r requirements.txt
 ```
 
-# Run
+# Quick Test Run
 
 ```bash
-python main.py
+python main.py --env cot --model_name gpt-3.5-turbo
+python main.py --env lot --model_name gpt-3.5-turbo
+```
+
+# Run Exepriments
+```bash
+sh run_cot.sh
+sh run_lot.sh
 ```
 
 # Dataset
