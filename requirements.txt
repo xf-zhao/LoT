@@ -3,5 +3,5 @@ matplotlib
 loguru
 wandb
 easydict
-openai
-langchain
+openai==1.2.0
+langchain==0.0.333
